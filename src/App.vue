@@ -1,62 +1,140 @@
 <template>
-  <h2>Wednesday 19-Jan, there will be 4 near misses</h2>
-  <hr />
+  <h3 v-if="isLoading" class="loading">
+    Getting data from NASA right now to check whether something from space is
+    going to hit us. One moment…
+  </h3>
 
-  <div>
-    <h2>2020 AD3</h2>
-    <h3>Potentially hazardous? <span class="hazard">YES</span></h3>
-    <p>
-      Misses Earth tomorrow at 3:06 a.m. by 33,279,090 miles whilst travelling
-      at 28,729 mph
-    </p>
-    <a href="">Find out more</a>
+  <div v-else>
+    <h2>
+      {{ title }}
+    </h2>
     <hr />
-  </div>
-  <div>
-    <h2>2021 WV4</h2>
-    <h3>Potentially hazardous? nope</h3>
-    <p>
-      Misses Earth tomorrow at 6:05 p.m. by 43,312,887 miles whilst travelling
-      at 20,307 mph
-    </p>
-    <a href="">Find out more</a>
-    <hr />
-  </div>
-  <div>
-    <h2>2021 WV4</h2>
-    <h3>Potentially hazardous? <span class="hazard">YES</span></h3>
-    <p>
-      Misses Earth tomorrow at 6:05 p.m. by 43,312,887 miles whilst travelling
-      at 20,307 mph
-    </p>
-    <a href="">Find out more</a>
-    <hr />
-  </div>
 
-  <!-- <h3>
-      Getting data from NASA right now to check whether something from space is
-      going to hit us. One moment…
-    </h3> -->
+    <div v-for="astroid in data" :key="astroid.id">
+      <h2>{{ astroid.name }}</h2>
+      <p>
+        Potentially hazardous?
+        <strong>
+          <span class="hazard" v-if="astroid.is_potentially_hazardous_asteroid"
+            >YES</span
+          ><span v-else>nope</span></strong
+        >
+      </p>
+      <p>
+        Relative Velocity:
+        <strong>
+          {{
+            formatNumber({ truncate: 0 })(
+              astroid.close_approach_data[0].relative_velocity.miles_per_hour
+            )
+          }}
+          mph</strong
+        >
+      </p>
+      <p>
+        Misses Earth at
+        <strong>{{
+          format(
+            astroid.close_approach_data[0].epoch_date_close_approach,
+            "EE d-MMM h:mmaaaa"
+          )
+        }}</strong>
+        by
+        <strong>{{
+          formatter(
+            parseInt(astroid.close_approach_data[0].miss_distance.miles, 10)
+          )
+        }}</strong>
+        miles
+      </p>
+      <p>
+        <a
+          :href="astroid.nasa_jpl_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Find out more</a
+        >
+      </p>
+      <hr />
+    </div>
 
-  <footer>
-    <p>
-      This open-source project is powered by NASA Near Earth Object Web Service.
-      You can get the source code from
-      <a
-        href="https://github.com/armanabkar/Asteroids-NeoWs-Vue"
-        target="_blank"
-        rel="noopener noreferrer"
-        >here</a
-      >.
-    </p>
-    <p>Designed & Developed by Arman Abkar</p>
-  </footer>
+    <footer>
+      <p>
+        This open-source project is powered by NASA Asteroids, Near Earth Object
+        Web Service (NeoWS). You can get the source code from
+        <a
+          href="https://github.com/armanabkar/Asteroids-NeoWs-Vue"
+          target="_blank"
+          rel="noopener noreferrer"
+          >here</a
+        >.
+      </p>
+      <p>{{ footerName }}</p>
+    </footer>
+  </div>
 </template>
 
 <script>
+import { onMounted, ref, computed } from "vue"
+import formatNumber from "format-number"
+import { format, addDays } from "date-fns"
+
 export default {
-  created() {
-    document.title = "2 Potential Hazards ⚠️"
+  setup() {
+    let data = ref([])
+    let isLoading = ref(true)
+    const formatter = formatNumber()
+
+    onMounted(() => {
+      fetchData()
+    })
+
+    const title = computed(
+      () => `${format(new Date(), "EEEE d-MMM")}, there will be
+      ${data.value.length} near misses`
+    )
+
+    const footerName = computed(
+      () => `© ${new Date().getFullYear()} Arman Abkar`
+    )
+
+    const fetchData = () => {
+      fetch(
+        `https://api.nasa.gov/neo/rest/v1/feed?end_date=${getDate()}&&api_key=FRWjok2uvAkO7TkgtZF1JfoeCdKIccFKiuxuZhtm`
+      )
+        .then((res) => res.json())
+        .then((res) => {
+          isLoading.value = false
+          let fetchedData = res.near_earth_objects[getDate()].sort(
+            (a, b) =>
+              a.close_approach_data[0].epoch_date_close_approach -
+              b.close_approach_data[0].epoch_date_close_approach
+          )
+          const hazards = fetchedData.reduce((acc, curr) => {
+            if (curr.is_potentially_hazardous_asteroid) {
+              return acc + 1
+            }
+            return acc
+          }, 0)
+          hazards &&
+            (document.title = `${hazards} Potential Hazards ⚠️ - Asteroids NeoWs`)
+          data.value = fetchedData
+        })
+    }
+
+    const getDate = () => {
+      return `${addDays(new Date(), 1).toISOString().substr(0, 10)}`
+    }
+
+    return {
+      data,
+      isLoading,
+      formatNumber,
+      format,
+      formatter,
+      title,
+      footerName,
+    }
   },
 }
 </script>
@@ -70,18 +148,18 @@ export default {
   --red: red;
 }
 html {
-  background-image: url(./assets/stars.svg),
-    linear-gradient(-60deg, #3d1b4b, var(--background));
+  background-image: url(./assets/stars.svg);
   background-repeat: repeat, no-repeat;
   background-size: auto, cover;
   background-position: bottom, bottom;
   min-height: 100%;
+  background-color: var(--background);
 }
 body {
   position: relative;
   max-width: 40em;
   margin: 0 auto;
-  padding: 20px;
+  padding: 10px 20px 0 20px;
   font-family: Ubuntu Mono, Menlo, Consolas, Monaco, Liberation Mono,
     Lucida Console, monospace;
   font-size: 20px;
@@ -103,14 +181,15 @@ hr {
 }
 footer {
   color: var(--secondary);
-  padding-top: 5px;
-  font-size: 18px;
   font-weight: 500;
   text-align: center;
 }
-@media (max-width: 768px) {
+.loading {
+  text-align: center;
+}
+@media (max-width: 600px) {
   body {
-    font-size: 18px;
+    font-size: 16px;
   }
 }
 @keyframes hazard {
