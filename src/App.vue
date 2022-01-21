@@ -1,23 +1,27 @@
 <template>
   <h3 v-if="isLoading" class="loading">
-    Getting data from NASA right now to check whether something from space is
-    going to hit us. One moment…
+    Loading...<br /><br />
+    Getting data from NASA servers to check whether something from space is
+    going to hit us.
   </h3>
 
   <div v-else>
-    <h2>
+    <h2>{{ `${format(new Date(), "EEEE d-MMM")},` }}</h2>
+    <h3>
       {{ title }}
-    </h2>
+    </h3>
     <hr />
 
     <div v-for="astroid in data" :key="astroid.id">
-      <h2>{{ astroid.name }}</h2>
+      <h2>
+        {{ astroid.name }}
+      </h2>
       <p>
-        Potentially hazardous?
+        Potentially Hazardous?
         <strong>
           <span class="hazard" v-if="astroid.is_potentially_hazardous_asteroid"
-            >YES</span
-          ><span v-else>nope</span></strong
+            >YES ⚠️</span
+          ><span v-else>No</span></strong
         >
       </p>
       <p>
@@ -29,6 +33,26 @@
             )
           }}
           mph</strong
+        >
+      </p>
+      <p>
+        Absolute Magnitude: <strong>{{ astroid.absolute_magnitude_h }}</strong>
+      </p>
+      <p>
+        Est. Diameter:
+        <strong
+          >{{
+            formatNumber({ truncate: 1 })(
+              astroid.estimated_diameter.feet.estimated_diameter_min
+            )
+          }}
+          -
+          {{
+            formatNumber({ truncate: 1 })(
+              astroid.estimated_diameter.feet.estimated_diameter_max
+            )
+          }}
+          ft</strong
         >
       </p>
       <p>
@@ -47,13 +71,14 @@
         }}</strong>
         miles
       </p>
-      <p>
+      <p class="links">
         <a
           :href="astroid.nasa_jpl_url"
           target="_blank"
           rel="noopener noreferrer"
-          >Find out more</a
+          >Find Out More</a
         >
+        <span class="id">ID: {{ astroid.neo_reference_id }}</span>
       </p>
       <hr />
     </div>
@@ -77,7 +102,7 @@
 <script>
 import { onMounted, ref, computed } from "vue"
 import formatNumber from "format-number"
-import { format, addDays } from "date-fns"
+import { format } from "date-fns"
 
 export default {
   setup() {
@@ -90,8 +115,8 @@ export default {
     })
 
     const title = computed(
-      () => `${format(new Date(), "EEEE d-MMM")}, there will be
-      ${data.value.length} near misses`
+      () => `There Will Be
+      ${data.value.length} Near Misses`
     )
 
     const footerName = computed(
@@ -105,11 +130,17 @@ export default {
         .then((res) => res.json())
         .then((res) => {
           isLoading.value = false
-          let fetchedData = res.near_earth_objects[getDate()].sort(
-            (a, b) =>
-              a.close_approach_data[0].epoch_date_close_approach -
-              b.close_approach_data[0].epoch_date_close_approach
-          )
+          let fetchedData = res.near_earth_objects[getDate()]
+            .sort(
+              (a, b) =>
+                a.close_approach_data[0].epoch_date_close_approach -
+                b.close_approach_data[0].epoch_date_close_approach
+            )
+            .filter(
+              (astroid) =>
+                astroid.close_approach_data[0].epoch_date_close_approach >
+                new Date()
+            )
           const hazards = fetchedData.reduce((acc, curr) => {
             if (curr.is_potentially_hazardous_asteroid) {
               return acc + 1
@@ -123,7 +154,7 @@ export default {
     }
 
     const getDate = () => {
-      return `${addDays(new Date(), 1).toISOString().substr(0, 10)}`
+      return `${new Date().toISOString().substr(0, 10)}`
     }
 
     return {
@@ -159,11 +190,18 @@ body {
   position: relative;
   max-width: 40em;
   margin: 0 auto;
-  padding: 10px 20px 0 20px;
+  padding: 12px 20px 0 20px;
   font-family: Ubuntu Mono, Menlo, Consolas, Monaco, Liberation Mono,
     Lucida Console, monospace;
   font-size: 20px;
   color: var(--primary);
+}
+.id {
+  color: var(--secondary);
+}
+.links {
+  display: flex;
+  justify-content: space-between;
 }
 a {
   color: var(--link);
