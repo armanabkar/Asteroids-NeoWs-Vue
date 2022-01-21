@@ -1,25 +1,15 @@
 <template>
-  <h3 v-if="isLoading" class="loading">
-    Loading...<br /><br />
-    Getting data from NASA servers to check whether something from space is
-    going to hit us.
-  </h3>
+  <Loading v-if="isLoading" />
 
-  <div v-else>
-    <h2>{{ `${format(new Date(), "EEEE d-MMM")},` }}</h2>
-    <h3>
-      {{ title }}
-    </h3>
-    <hr />
-
-    <div v-for="astroid in data" :key="astroid.id">
+  <Layout v-else data="data">
+    <div v-for="asteroid in data" :key="asteroid.id">
       <h2>
-        {{ astroid.name }}
+        {{ asteroid.name }}
       </h2>
       <p>
         Potentially Hazardous?
         <strong>
-          <span class="hazard" v-if="astroid.is_potentially_hazardous_asteroid"
+          <span class="hazard" v-if="asteroid.is_potentially_hazardous_asteroid"
             >YES ⚠️</span
           ><span v-else>No</span></strong
         >
@@ -27,101 +17,91 @@
       <p>
         Relative Velocity:
         <strong>
-          {{
-            formatNumber({ truncate: 0 })(
-              astroid.close_approach_data[0].relative_velocity.miles_per_hour
-            )
-          }}
+          {{ relativeVelocity(asteroid) }}
           mph</strong
         >
       </p>
       <p>
-        Absolute Magnitude: <strong>{{ astroid.absolute_magnitude_h }}</strong>
+        Absolute Magnitude:
+        <strong>{{ asteroid.absolute_magnitude_h }}</strong>
       </p>
       <p>
         Est. Diameter:
         <strong
-          >{{
-            formatNumber({ truncate: 1 })(
-              astroid.estimated_diameter.feet.estimated_diameter_min
-            )
-          }}
+          >{{ minEstimatedDiameter(asteroid) }}
           -
-          {{
-            formatNumber({ truncate: 1 })(
-              astroid.estimated_diameter.feet.estimated_diameter_max
-            )
-          }}
+          {{ maxEstimatedDiameter(asteroid) }}
           ft</strong
         >
       </p>
       <p>
         Misses Earth at
-        <strong>{{
-          format(
-            astroid.close_approach_data[0].epoch_date_close_approach,
-            "EE d-MMM h:mmaaaa"
-          )
-        }}</strong>
+        <strong>{{ approachDate(asteroid) }}</strong>
         by
-        <strong>{{
-          formatter(
-            parseInt(astroid.close_approach_data[0].miss_distance.miles, 10)
-          )
-        }}</strong>
+        <strong>{{ missDistance(asteroid) }}</strong>
         miles
       </p>
       <p class="links">
         <a
-          :href="astroid.nasa_jpl_url"
+          :href="asteroid.nasa_jpl_url"
           target="_blank"
           rel="noopener noreferrer"
           >Find Out More</a
         >
-        <span class="id">ID: {{ astroid.neo_reference_id }}</span>
+        <span class="id">ID: {{ asteroid.neo_reference_id }}</span>
       </p>
       <hr />
     </div>
-
-    <footer>
-      <p>
-        This open-source project is powered by NASA Asteroids, Near Earth Object
-        Web Service (NeoWS). You can get the source code from
-        <a
-          href="https://github.com/armanabkar/Asteroids-NeoWs-Vue"
-          target="_blank"
-          rel="noopener noreferrer"
-          >here</a
-        >.
-      </p>
-      <p>{{ footerName }}</p>
-    </footer>
-  </div>
+  </Layout>
 </template>
 
 <script>
-import { onMounted, ref, computed } from "vue"
+import { onMounted, ref } from "vue"
 import formatNumber from "format-number"
 import { format } from "date-fns"
+import Loading from "./components/Loading.vue"
+import Layout from "./components/Layout.vue"
 
 export default {
+  components: {
+    Loading,
+    Layout,
+  },
   setup() {
     let data = ref([])
     let isLoading = ref(true)
-    const formatter = formatNumber()
 
     onMounted(() => {
       fetchData()
     })
 
-    const title = computed(
-      () => `There Will Be
-      ${data.value.length} Near Misses`
-    )
+    const relativeVelocity = (asteroid) =>
+      formatNumber({ truncate: 0 })(
+        asteroid.close_approach_data[0].relative_velocity.miles_per_hour
+      )
 
-    const footerName = computed(
-      () => `© ${new Date().getFullYear()} Arman Abkar`
-    )
+    const minEstimatedDiameter = (asteroid) =>
+      formatNumber({ truncate: 1 })(
+        asteroid.estimated_diameter.feet.estimated_diameter_min
+      )
+
+    const maxEstimatedDiameter = (asteroid) =>
+      formatNumber({ truncate: 1 })(
+        asteroid.estimated_diameter.feet.estimated_diameter_max
+      )
+
+    const approachDate = (asteroid) =>
+      format(
+        asteroid.close_approach_data[0].epoch_date_close_approach,
+        "EE d-MMM h:mmaaaa"
+      )
+
+    const missDistance = (asteroid) => {
+      const formatter = formatNumber()
+      return formatter(
+        parseInt(asteroid.close_approach_data[0].miss_distance.miles, 10)
+      )
+    }
 
     const fetchData = () => {
       fetch(
@@ -137,8 +117,8 @@ export default {
                 b.close_approach_data[0].epoch_date_close_approach
             )
             .filter(
-              (astroid) =>
-                astroid.close_approach_data[0].epoch_date_close_approach >
+              (asteroid) =>
+                asteroid.close_approach_data[0].epoch_date_close_approach >
                 new Date()
             )
           const hazards = fetchedData.reduce((acc, curr) => {
@@ -160,11 +140,11 @@ export default {
     return {
       data,
       isLoading,
-      formatNumber,
-      format,
-      formatter,
-      title,
-      footerName,
+      missDistance,
+      approachDate,
+      relativeVelocity,
+      minEstimatedDiameter,
+      maxEstimatedDiameter,
     }
   },
 }
@@ -216,14 +196,6 @@ a {
 hr {
   border: 0;
   border-bottom: 4px solid var(--secondary);
-}
-footer {
-  color: var(--secondary);
-  font-weight: 500;
-  text-align: center;
-}
-.loading {
-  text-align: center;
 }
 @media (max-width: 600px) {
   body {
