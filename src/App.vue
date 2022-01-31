@@ -35,18 +35,17 @@ export default {
     let plusDay = ref(0)
 
     onMounted(() => {
-      fetchData("imperial")
+      fetchData(system.value)
     })
 
     const fetchData = (type) => {
-      system.value = type
       isLoading.value = true
+      system.value = type
       fetch(
         `https://api.nasa.gov/neo/rest/v1/feed?end_date=${getDate()}&&api_key=DEMO_KEY`
       )
         .then((res) => res.json())
         .then((res) => {
-          isLoading.value = false
           let fetchedData = res.near_earth_objects[getDate()]
             .sort(
               (a, b) =>
@@ -58,15 +57,19 @@ export default {
                 asteroid.close_approach_data[0].epoch_date_close_approach >
                 new Date()
             )
+
           const hazards = fetchedData.reduce((acc, curr) => {
             if (curr.is_potentially_hazardous_asteroid) {
               return acc + 1
             }
             return acc
           }, 0)
-          hazards &&
-            (document.title = `${hazards} Potential Hazards ⚠️ - Near Earth Asteroids`)
+          hazards
+            ? (document.title = `${hazards} Potential Hazards ⚠️ - Near Earth Asteroids`)
+            : (document.title = "Near Earth Asteroids")
+
           data.value = fetchedData
+          isLoading.value = false
         })
     }
 
